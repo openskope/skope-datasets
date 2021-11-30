@@ -8,7 +8,7 @@ N=30
 (
   for year in {0001..2017}; do
     ((i=i%N)); ((i++==0)) && wait
-    if [ -f "pmdi/geoserver/lbda_v2_pmdi_$year.tif" ]
+    if [ -f "lbda_v2/pmdi/geoserver/lbda_v2_pmdi_$year.tif" ]
     then
       continue
     else
