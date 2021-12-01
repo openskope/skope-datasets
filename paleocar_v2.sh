@@ -18,6 +18,8 @@ for long in {103..115}
 
 
 ## ppt_water_year
+echo "Building paleocar_v2 ppt_water_year dataset"
+
 mkdir -p paleocar_v2/ppt_water_year/geoserver
 
 if ! [ -f paleocar_v2/ppt_water_year/cube.tif ]; then
@@ -40,6 +42,7 @@ N=$(($(nproc --all)-2))
 )
 
 ## gdd_may_sept
+echo "Building paleocar_v2 gdd_may_sept dataset"
 mkdir -p paleocar_v2/gdd_may_sept/geoserver
 
 if ! [ -f paleocar_v2/gdd_may_sept/cube.tif ]; then
@@ -62,6 +65,7 @@ fi
 
 
 # maize_farming_niche
+echo "Building paleocar_v2 maize_farming_niche dataset"
 mkdir -p paleocar_v2/maize_farming_niche/geoserver
 
 (
