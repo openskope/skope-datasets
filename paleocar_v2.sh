@@ -6,10 +6,11 @@ for long in {103..115}
     for lat in {31..42}
         do
         echo paleocar_v2/raw/$long\W$lat\N_GDD.nc4
-        if ! [ -f "paleocar_v2/raw/$long\W$lat\N_GDD.nc4" ]; then
+        if ! [ -f paleocar_v2/raw/$long\W$lat\N_GDD.nc4 ]; then
             curl https://www1.ncdc.noaa.gov/pub/data/paleo/treering/reconstructions/northamerica/usa/bocinsky2016/$long\W$lat\N_GDD.nc4 --output paleocar_v2/raw/$long\W$lat\N_GDD.nc4
         fi
-        if ! [ -f "paleocar_v2/raw/$long\W$lat\N_PPT.nc4" ]; then
+        echo paleocar_v2/raw/$long\W$lat\N_PPT.nc4
+        if ! [ -f paleocar_v2/raw/$long\W$lat\N_PPT.nc4 ]; then
             curl https://www1.ncdc.noaa.gov/pub/data/paleo/treering/reconstructions/northamerica/usa/bocinsky2016/$long\W$lat\N_PPT.nc4 --output paleocar_v2/raw/$long\W$lat\N_PPT.nc4
         fi
         done
