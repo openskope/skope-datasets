@@ -19,8 +19,11 @@ for long in {103..115}
 
 ## ppt_water_year
 mkdir -p paleocar_v2/ppt_water_year/geoserver
-gdalbuildvrt -a_srs EPSG:4326 -srcnodata -32768 paleocar_v2/ppt_water_year/cube.vrt paleocar_v2/raw/*PPT.nc4
-gdal_translate -ot Int16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v2/ppt_water_year/cube.vrt paleocar_v2/ppt_water_year/cube.tif
+
+if ! [ -f paleocar_v2/ppt_water_year/cube.tif ]; then
+    gdalbuildvrt -a_srs EPSG:4326 -srcnodata -32768 paleocar_v2/ppt_water_year/cube.vrt paleocar_v2/raw/*PPT.nc4
+    gdal_translate -ot Int16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v2/ppt_water_year/cube.vrt paleocar_v2/ppt_water_year/cube.tif
+fi
 
 N=$(($(nproc --all)-2))
 (
@@ -38,8 +41,11 @@ N=$(($(nproc --all)-2))
 
 ## gdd_may_sept
 mkdir -p paleocar_v2/gdd_may_sept/geoserver
-gdalbuildvrt -a_srs EPSG:4326 -srcnodata -32768 paleocar_v2/gdd_may_sept/cube.vrt paleocar_v2/raw/*GDD.nc4
-gdal_translate -ot Int16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v2/gdd_may_sept/cube.vrt paleocar_v2/gdd_may_sept/cube.tif
+
+if ! [ -f paleocar_v2/gdd_may_sept/cube.tif ]; then
+    gdalbuildvrt -a_srs EPSG:4326 -srcnodata -32768 paleocar_v2/gdd_may_sept/cube.vrt paleocar_v2/raw/*GDD.nc4
+    gdal_translate -ot Int16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v2/gdd_may_sept/cube.vrt paleocar_v2/gdd_may_sept/cube.tif
+fi
 
 (
   for year in {0001..2000}; do
@@ -70,6 +76,10 @@ mkdir -p paleocar_v2/maize_farming_niche/geoserver
     fi
   done
 )
+
+## Bash add pause prompt for 5 seconds ##
+sleep 30
+
 rm paleocar_v2/maize_farming_niche/geoserver/temp.tif
 
 cp styles/paleocar_ppt_annual.sld paleocar_v2/ppt_water_year/geoserver/paleocar_ppt_annual.sld
