@@ -20,4 +20,6 @@ N=30
 gdalbuildvrt -separate lbda_v2/pmdi/cube.vrt lbda_v2/pmdi/geoserver/lbda_v2_pmdi_*.tif
 gdal_translate -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO lbda_v2/pmdi/cube.vrt lbda_v2/pmdi/cube.tif
 
+cp styles/pmdi.sld lbda_v2/pmdi/geoserver/pmdi.sld
+
 #python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/lbda_v2/pmdi/geoserver --base-path /projects/skope/datasets/lbda_v2/pmdi/geoserver

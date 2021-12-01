@@ -72,7 +72,9 @@ mkdir -p paleocar_v2/maize_farming_niche/geoserver
 )
 rm paleocar_v2/maize_farming_niche/geoserver/temp.tif
 
-
+cp styles/paleocar_ppt_annual.sld paleocar_v2/ppt_water_year/geoserver/paleocar_ppt_annual.sld
+cp styles/paleocar_gdd_summer.sld paleocar_v2/gdd_may_sept/geoserver/paleocar_gdd_summer.sld
+cp styles/paleocar_niche.sld paleocar_v2/maize_farming_niche/geoserver/paleocar_niche.sld
 
 rsync -razhv paleocar_v2/ppt_water_year skope_staging:/projects/skope/datasets/paleocar_v2/
 rsync -razhv paleocar_v2/gdd_may_sept skope_staging:/projects/skope/datasets/paleocar_v2/
