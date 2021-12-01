@@ -3,7 +3,7 @@ mkdir -p paleocar_v2/raw
 
 for long in {103..115} 
     do
-    for lat in {32..42}
+    for lat in {31..42}
         do
         echo paleocar_v2/raw/$long\W$lat\N_GDD.nc4
         if ! [ -f "paleocar_v2/raw/$long\W$lat\N_GDD.nc4" ]; then
