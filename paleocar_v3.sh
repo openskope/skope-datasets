@@ -82,7 +82,7 @@ make_cubes gdd_may_sept
 
 cp styles/paleocar_ppt_annual.sld paleocar_v3/ppt_water_year/geoserver/paleocar_ppt_annual.sld
 cp styles/paleocar_ppt_annual.sld paleocar_v3/ppt_annual/geoserver/paleocar_ppt_annual.sld
-cp styles/paleocar_ppt_annual.sld paleocar_v3/ppt_may_sept/geoserver/paleocar_ppt_annual.sld
+cp styles/paleocar_ppt_annual.sld paleocar_v3/ppt_may_sept/geoserver/paleocar_ppt_summer.sld
 cp styles/paleocar_gdd_summer.sld paleocar_v3/gdd_may_sept/geoserver/paleocar_gdd_summer.sld
 #cp styles/paleocar_niche.sld paleocar_v3/maize_farming_niche/geoserver/paleocar_niche.sld
 
@@ -96,6 +96,8 @@ rsync -razhv paleocar_v3/gdd_may_sept skope_staging:/projects/skope/datasets/pal
 #
 #rsync -razhv paleocar_v3/maize_farming_niche skope_staging:/projects/skope/datasets/paleocar_v3/
 
-#python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver
-#python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver
+python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver
+python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_annual/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_annual/geoserver
+python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_may_sept/geoserver
+python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver
 #python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/maize_farming_niche/geoserver --base-path /projects/skope/datasets/paleocar_v3/maize_farming_niche/geoserver
