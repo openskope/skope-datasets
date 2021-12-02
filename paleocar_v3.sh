@@ -47,7 +47,7 @@ make_tifs gdd_may_sept
 
 make_cubes (){
     if ! [ -f paleocar_v3/$1/cube.tif ]; then
-        gdalbuildvrt -separate data-derived/paleocar/$1/cube.vrt paleocar_v3/$1/geoserver/paleocar_v3_$1_*.tif
+        gdalbuildvrt -separate paleocar_v3/$1/cube.vrt paleocar_v3/$1/geoserver/paleocar_v3_$1_*.tif
         gdal_translate -ot UInt16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v3/$1/cube.vrt paleocar_v3/$1/cube.tif
     fi
 }
