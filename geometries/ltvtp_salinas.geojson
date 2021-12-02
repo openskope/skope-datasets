@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "ltvtp_salinas",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { "Id": 0 }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -106.754776095020972, 35.005687905175677 ], [ -105.034016371018794, 34.934985577712197 ], [ -105.1556768204657, 33.145738570564397 ], [ -106.840843090589047, 33.211776476943555 ], [ -106.754776095020972, 35.005687905175677 ] ] ] } }
+]
+}
