@@ -21,14 +21,10 @@ mkdir -p paleocar_v3/raw
 ## ppt_water_year
 echo "Building paleocar_v3 ppt_water_year dataset"
 
-build_dataset (){
+make_tifs (){
     mkdir -p paleocar_v3/$1/geoserver
 
-    if ! [ -f paleocar_v3/$1/cube.tif ]; then
         gdalbuildvrt -a_srs EPSG:4326 paleocar_v3/$1/cube.vrt paleocar_v3/raw/$1_demosaic/*prediction_scaled*.tif
-        gdal_translate -ot UInt16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v3/$1/cube.vrt paleocar_v3/$1/cube.tif
-        fi
-
 
     (
         for year in {0103..2000}; do
@@ -38,16 +34,29 @@ build_dataset (){
             then
                 continue
             else
-                let band=$((10#$year))-102; gdal_translate paleocar_v3/$1/cube.tif paleocar_v3/$1/geoserver/paleocar_v3_$1_$year.tif -b $band -of COG -ot UInt16 -co BLOCKSIZE=128 -co OVERVIEWS=NONE -co COMPRESS=DEFLATE -q &
+                let band=$((10#$year))-102; gdal_translate paleocar_v3/$1/cube.vrt paleocar_v3/$1/geoserver/paleocar_v3_$1_$year.tif -b $band -of COG -ot UInt16 -co BLOCKSIZE=128 -co OVERVIEWS=NONE -co COMPRESS=DEFLATE -q &
             fi
         done
         )
 }
 
-build_dataset ppt_water_year
-build_dataset ppt_annual
-build_dataset ppt_may_sept
-build_dataset gdd_may_sept
+make_tifs ppt_water_year
+make_tifs ppt_annual
+make_tifs ppt_may_sept
+make_tifs gdd_may_sept
+
+make_cubes (){
+    if ! [ -f paleocar_v3/$1/cube.tif ]; then
+        gdalbuildvrt -separate data-derived/paleocar/$1/cube.vrt paleocar_v3/$1/geoserver/paleocar_v3_$1_*.tif
+        gdal_translate -ot UInt16 -co BIGTIFF=YES -co TILED=YES -co BLOCKXSIZE=16 -co BLOCKYSIZE=16 -co COMPRESS=DEFLATE -co NUM_THREADS=ALL_CPUS --config GDAL_PAM_ENABLED NO paleocar_v3/$1/cube.vrt paleocar_v3/$1/cube.tif
+    fi
+}
+
+make_cubes ppt_water_year
+make_cubes ppt_annual
+make_cubes ppt_may_sept
+make_cubes gdd_may_sept
+
 
 ## maize_farming_niche
 #echo "Building paleocar_v3 maize_farming_niche dataset"
