@@ -32,3 +32,12 @@ get_nps_unit("Hopi") %>%
 sf::read_sf("ltvtp_hohokam.geojson") %>%
   sf::st_geometry() %>%
   sf::write_sf("ltvtp_hohokam.geojson", delete_dsn=TRUE)
+
+sf::read_sf("~/Dropbox/NRG Ag Model/data-raw/Study Area Boundary/") %>%
+  sf::st_transform(4326) %>%
+  sf::st_geometry() %>%
+  sf::write_sf("davis_nrg.geojson", delete_dsn=TRUE)
+
+sf::read_sf("vepii_nrg.geojson") %>%
+  sf::st_area() %>%
+  units::set_units("km^2")
