@@ -1,0 +1,8 @@
+{
+"type": "FeatureCollection",
+"name": "1000km2",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:OGC:1.3:CRS84" } },
+"features": [
+{ "type": "Feature", "properties": { }, "geometry": { "type": "Polygon", "coordinates": [ [ [ -109.045189, 36.998980999999716 ], [ -108.689931341665925, 36.998449374228258 ], [ -108.688596383720238, 37.283384347582263 ], [ -109.045189, 37.2839214605103 ], [ -109.045189, 36.998980999999716 ] ] ] } }
+]
+}
