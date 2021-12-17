@@ -96,7 +96,7 @@ rsync -razhv paleocar_v3/gdd_may_sept skope_staging:/projects/skope/datasets/pal
 #
 #rsync -razhv paleocar_v3/maize_farming_niche skope_staging:/projects/skope/datasets/paleocar_v3/
 
-python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver
-python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_annual/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_annual/geoserver
-python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_may_sept/geoserver
-python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver
+#python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_water_year/geoserver
+#python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_annual/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_annual/geoserver
+#python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/ppt_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/ppt_may_sept/geoserver
+#python main.py geoserver load --host https://geoserver.openskope.org --workspace SKOPE --geoserver-base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver --base-path /projects/skope/datasets/paleocar_v3/gdd_may_sept/geoserver
