@@ -1,22 +1,22 @@
 import os
 import tempfile
 import json
-from datetime import datetime, timezone
-from osgeo import gdal
 import pystac
+import yaml
+from osgeo import gdal
+from datetime import datetime, timezone
 from rio_stac.stac import create_stac_item
 from datetime import datetime, timezone
 from dateutil.relativedelta import relativedelta
-# from pandas import DataFrame, concat
 
 gdal.UseExceptions()
 gdal.SetCacheMax(4608 * 1024 * 1024) # 4.5 GB
 gdal.SetConfigOption("GDAL_NUM_THREADS", "ALL_CPUS")
 
-# --- Step 1 & 2: Set parameters ---
+# --- Set parameters ---
 input_dir = "data.nosync"
 dataset_name = "paleocar_v3"
-catalog_desc = "Root catalog for SKOPE paleoenvironmental data."
+metadata_file_path = "../skope-api/timeseries/app/metadata.yml"
 trunc_to_uint16 = True
 
 max_bands_per_slice = 100
@@ -47,6 +47,121 @@ def generate_date_range(start_dt, end_dt, step):
     while current <= end_dt:
         yield current
         current += step
+
+def singular_to_plural_for_relativedelta(time_delta):
+    """Converts singular keys (e.g., 'year') to plural keys (e.g., 'years') for relativedelta."""
+    return {k + 's' if not k.endswith('s') else k: v for k, v in time_delta.items()}
+
+# -----------------------------------------------------------------------------------------------------------------
+# Update/Validate Metadata
+def load_and_verify_metadata(metadata_file_path, dataset_name):
+    """Loads YAML metadata and verifies the dataset exists."""
+    print(f"Loading metadata from {metadata_file_path}")
+    if not os.path.exists(metadata_file_path):
+        raise ValueError(f"Metadata file not found at: {metadata_file_path}")
+        
+    with open(metadata_file_path, "r") as f:
+        yaml_content = yaml.safe_load(f) or []
+
+    meta_by_id = {item.get("id"): item for item in yaml_content if isinstance(item, dict)} if isinstance(yaml_content, list) else {}
+    ds_meta = meta_by_id.get(dataset_name)
+
+    if ds_meta is None:
+        raise ValueError(f"Dataset '{dataset_name}' not found in metadata file. Cannot proceed.")
+
+    return yaml_content, ds_meta
+
+def validate_else_add_timespan(ds_meta, start_dt, time_delta):
+    """Validates user-provided time variables against metadata, adding to metadata if missing."""
+    updated = False
+    
+    # Ensure nested dictionaries exist
+    if "timespan" not in ds_meta: ds_meta["timespan"] = {}
+    if "period" not in ds_meta["timespan"]: ds_meta["timespan"]["period"] = {}
+    if "resolution" not in ds_meta["timespan"]: ds_meta["timespan"]["resolution"] = {}
+
+    # 1. Validate Start Time (gte)
+    expected_gte = get_iso_key(start_dt, time_delta)
+    meta_gte = ds_meta["timespan"]["period"].get("gte")
+    
+    if meta_gte is None:
+        print(f"Metadata missing start time (gte). Adding user-provided start time: {expected_gte}")
+        ds_meta["timespan"]["period"]["gte"] = expected_gte
+        updated = True
+    elif str(meta_gte) != expected_gte:
+        raise ValueError(f"Start time mismatch! User: {expected_gte}, Meta: {meta_gte}")
+
+    # 2. Validate Time Delta (resolution)
+    meta_res = ds_meta["timespan"]["resolution"]
+    
+    if not meta_res: 
+        print(f"Metadata missing resolution. Adding user-provided value.")
+        for k, v in time_delta.items():
+            meta_res[k] = v
+        updated = True
+    else:
+        user_delta = relativedelta(**time_delta)
+        plural_meta_res = singular_to_plural_for_relativedelta(meta_res)
+        meta_delta = relativedelta(**plural_meta_res)
+
+        if user_delta != meta_delta:
+            raise ValueError(f"Time delta mismatch! User: {time_delta}, Meta: {meta_res}")
+            
+    return updated
+
+def validate_else_add_extracted_info(ds_meta, var_name, c_extra):
+    """Validates actual data extracted from the COG against metadata, adding if missing."""
+    updated = False
+    
+    # 1. CRS
+    m_crs = ds_meta.get("crs")
+    extracted_crs = f"EPSG:{c_extra.get('proj:epsg')}" if c_extra.get("proj:epsg") else None
+    if m_crs is None and extracted_crs:
+        print("Metadata missing CRS. Adding extracted CRS.")
+        ds_meta["crs"] = extracted_crs
+        updated = True
+    elif m_crs and extracted_crs and m_crs.upper() != extracted_crs.upper():
+        raise ValueError(f"CRS mismatch! Meta: {m_crs}, Data: {extracted_crs}")
+        
+    # 2. Transform (Compare first 6 elements rounded to 5 decimals)
+    m_trans = ds_meta.get("transform")
+    c_trans = c_extra.get("proj:transform")
+    if m_trans is None and c_trans:
+        print("Metadata missing Transform. Adding extracted Transform.")
+        ds_meta["transform"] = c_trans
+        updated = True
+    elif m_trans and c_trans:
+        if not all(round(m, 5) == round(d, 5) for m, d in zip(m_trans[:6], c_trans[:6])):
+            raise ValueError(f"Transform mismatch!\nMeta: {m_trans[:6]}\nData: {c_trans[:6]}")
+    
+    # 3. Min/Max
+    if "variables" not in ds_meta: ds_meta["variables"] = []
+    var_meta = next((v for v in ds_meta["variables"] if v.get("id") == var_name), None)
+    
+    if var_meta is None:
+        raise ValueError(f"Metadata missing variable entry for '{var_name}'.")
+
+    c_min, c_max = c_extra.get("titiler:min"), c_extra.get("titiler:max")
+    
+    if var_meta.get("min") is None and c_min is not None:
+        print(f"Metadata missing min for {var_name}. Adding extracted min.")
+        var_meta["min"] = float(c_min)
+        updated = True
+    elif var_meta.get("min") is not None and c_min is not None and abs(var_meta["min"] - c_min) > 0.001:
+        raise ValueError(f"Min mismatch for {var_name}! Meta: {var_meta['min']}, Data: {c_min}")
+
+    if var_meta.get("max") is None and c_max is not None:
+        print(f"Metadata missing max for {var_name}. Adding extracted max.")
+        var_meta["max"] = float(c_max)
+        updated = True
+    elif var_meta.get("max") is not None and c_max is not None and abs(var_meta["max"] - c_max) > 0.001:
+        raise ValueError(f"Max mismatch for {var_name}! Meta: {var_meta['max']}, Data: {c_max}")
+
+    return updated
+
+# -----------------------------------------------------------------------------------------------------------------
+
+
 
 # -----------------------------------------------------------------------------------------------------------------
 
@@ -184,7 +299,12 @@ def process_variable(paths_dict, stac_collection, lookup_dict, window=100, trunc
         if os.path.exists(tmp):
             os.unlink(tmp)
 
+# -----------------------------------------------------------------------------------------------------------------
 
+dataset_time_delta = singular_to_plural_for_relativedelta(dataset_time_delta)
+
+yaml_content, ds_meta = load_and_verify_metadata(metadata_file_path, dataset_name)
+any_metadata_updated = validate_else_add_timespan(ds_meta, dataset_start_datetime, dataset_time_delta)
 
 input_paths = [os.path.join(input_dir, f) for f in os.listdir(input_dir) if f.endswith(".tif") and not f.endswith("_cogd.tif")]
 
@@ -195,6 +315,7 @@ os.makedirs(root_cogs_dir, exist_ok=True)
 os.makedirs(stac_dir, exist_ok=True)
 
 # Initialize the STAC Catalog and lookup dictionary
+catalog_desc = ds_meta.get("description", f"STAC Catalog for {dataset_name} dataset.")
 catalog = pystac.Catalog(
     id="skope-catalog",
     description=catalog_desc
@@ -229,7 +350,18 @@ for input_path in input_paths:
         "var_name": var_name,
     }
 
-    process_variable(paths_dict, collection, lookup_dict, window=max_bands_per_slice, trunc=trunc_to_uint16, start_dt=dataset_start_datetime, time_delta=dataset_time_delta)
+    process_variable(
+        paths_dict,
+        collection,
+        lookup_dict,
+        window=max_bands_per_slice,
+        trunc=trunc_to_uint16,
+        start_dt=dataset_start_datetime,
+        time_delta=dataset_time_delta
+    )
+
+    updated_extracted = validate_else_add_extracted_info(ds_meta, var_name, collection.extra_fields)
+    any_metadata_updated = any_metadata_updated or updated_extracted
 
     collection.update_extent_from_items()
     catalog.add_child(collection)
@@ -244,7 +376,10 @@ lookup_file_path = os.path.join(output_dir, "lookup.json")
 with open(lookup_file_path, "w") as f:
     json.dump(lookup_dict, f, indent=2)
 
+if any_metadata_updated:
+    print(f"Saving updated metadata back to {metadata_file_path}")
+    with open(metadata_file_path, "w") as f:
+        yaml.dump(yaml_content, f, default_flow_style=False, sort_keys=False)
+
 print(f"Done! Tree generated in {stac_dir} and {root_cogs_dir}")
 print(f"Lookup Dictionary generated at {lookup_file_path}")
-
-
