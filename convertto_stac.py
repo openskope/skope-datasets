@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from osgeo import gdal
 import pystac
 from rio_stac.stac import create_stac_item
-from pandas import DataFrame, concat
+from datetime import datetime, timezone
+from dateutil.relativedelta import relativedelta
+# from pandas import DataFrame, concat
 
 gdal.UseExceptions()
 gdal.SetCacheMax(4608 * 1024 * 1024) # 4.5 GB
@@ -16,19 +18,45 @@ input_dir = "data.nosync"
 dataset_name = "paleocar_v3"
 catalog_desc = "Root catalog for SKOPE paleoenvironmental data."
 trunc_to_uint16 = True
-n_slices = 16 
-dataset_start_y = 103
 
+max_bands_per_slice = 100
+
+dataset_start_datetime = datetime(103, 1, 1, tzinfo=timezone.utc)
+dataset_time_delta = {"years": 1} # Valid keys match dateutil.relativedelta (e.g., years, months, days, hours)
+
+# -----------------------------------------------------------------------------------------------------------------
+# Datetime helpers
+def get_iso_key(dt, time_delta):
+    """Returns a partially or fully ISO-8601 compliant string based on the time step resolution."""
+    if any(k in time_delta for k in ["hours", "minutes", "seconds"]):
+        return f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}Z"
+    elif "days" in time_delta or "weeks" in time_delta:
+        return f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}"
+    elif "months" in time_delta:
+        return f"{dt.year:04d}-{dt.month:02d}"
+    else: # Default to year precision
+        return f"{dt.year:04d}"
+
+def format_stac_datetime(dt):
+    """Returns a strict STAC ISO-8601 compliant string with 4-digit year padding."""
+    return f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}T{dt.hour:02d}:{dt.minute:02d}:{dt.second:02d}Z"
+
+def generate_date_range(start_dt, end_dt, step):
+    """Yields datetimes from start to end (inclusive) by a given step."""
+    current = start_dt
+    while current <= end_dt:
+        yield current
+        current += step
 
 # -----------------------------------------------------------------------------------------------------------------
 
-def process_variable(paths_dict, stac_collection, lookup_dict, n=16, trunc=False, start_year=1):
-    print(f"Dividing raster into {n} slices")
+def process_variable(paths_dict, stac_collection, lookup_dict, window=100, trunc=False, start_dt=None, time_delta=None):
 
     input_path = paths_dict["input_path"]
     cogs_var_dir = paths_dict["cogs_var_dir"]
     partial_path_base = paths_dict["partial_path_base"]
     var_name = paths_dict["var_name"]
+    step = relativedelta(**time_delta)
     
     tmpfiles = []
     lookup_dict[var_name] = {}
@@ -36,7 +64,8 @@ def process_variable(paths_dict, stac_collection, lookup_dict, n=16, trunc=False
     with gdal.Open(input_path) as ds:
         tot_bands = ds.RasterCount
 
-    window = -(- tot_bands // n) # ceiling of division
+    n = -(- tot_bands // window) # ceiling division
+    print(f"Dividing raster into {n} slices (Max {window} bands each)")
 
     global_min = float('inf')
     global_max = float('-inf')
@@ -47,17 +76,22 @@ def process_variable(paths_dict, stac_collection, lookup_dict, n=16, trunc=False
         cog_file_path = os.path.join(cogs_var_dir, cog_filename)
         partial_file_path = os.path.join(partial_path_base, cog_filename)
         
-        # Determine bands for this slice
-        start_band = s * window + 1
-        end_band = min((s + 1) * window, tot_bands) + 1
-        
-        slice_start_year = start_year + (start_band - 1)
-        slice_end_year = start_year + (end_band - 2)
+        start_idx = s * window
+        end_idx = min((s + 1) * window, tot_bands) - 1
+
+        # Determine bands to extract for this slice
+        start_band = start_idx + 1
+        end_band_plus_1 = end_idx + 2
+
+        slice_start_dt = start_dt + (step * start_idx)
+        slice_end_dt = start_dt + (step * end_idx)
 
         print(f"\nProcessing slice {suffx}")
-        print(f"Populating lookup dict for years {slice_start_year} to {slice_end_year}")
-        for i, year in enumerate(range(slice_start_year, slice_end_year + 1)):
-            lookup_dict[var_name][str(year)] = {
+        print(f"Populating lookup dict for years {slice_start_dt} to {slice_end_dt}")
+
+        for i, current_dt in enumerate(generate_date_range(slice_start_dt, slice_end_dt, step)):
+            iso_key = get_iso_key(current_dt, time_delta)
+            lookup_dict[var_name][iso_key] = {
                 "file": partial_file_path,
                 "bidx": i + 1
             }
@@ -66,10 +100,10 @@ def process_variable(paths_dict, stac_collection, lookup_dict, n=16, trunc=False
             with tempfile.NamedTemporaryFile(suffix=f'_{suffx}.tif', delete=False) as tmp_block:
                 slice_file = tmp_block.name
                 
-                print(f"\nCreating slice {suffx} with bands {start_band} to {end_band - 1}")
-                print(f"Mapped to Years: {slice_start_year} to {slice_end_year}")
+                print(f"\nCreating slice {suffx} with bands {start_band} to {end_band_plus_1 - 1}")
+                print(f"Mapped to Time Steps: {slice_start_dt} to {slice_end_dt}")
 
-                selected_bands = ",".join(str(b) for b in range(start_band, end_band))
+                selected_bands = ",".join(str(b) for b in range(start_band, end_band_plus_1))
                 
                 # 1. Select bands → write GeoTiff. 
                 print("Selecting bands and writing GeoTiff file")
@@ -108,8 +142,10 @@ def process_variable(paths_dict, stac_collection, lookup_dict, n=16, trunc=False
             with_proj=True,
             with_raster=True
         )
-        item.properties["start_datetime"] = f"{slice_start_year:04d}-01-01T00:00:00Z"
-        item.properties["end_datetime"] = f"{slice_end_year:04d}-12-31T23:59:59Z"
+        item.properties["start_datetime"] = format_stac_datetime(slice_start_dt)
+        # End datetime represents the *end* of the period for the last band in this slice
+        almost_one_step = step - relativedelta(seconds=1)
+        item.properties["end_datetime"] = format_stac_datetime(slice_end_dt + almost_one_step)
         item.datetime = None
 
         # find relative path from item's json to cog asset, then save the item with that relative path
@@ -180,8 +216,8 @@ for input_path in input_paths:
         extent=pystac.Extent(
             spatial=pystac.SpatialExtent([[-180.0, -90.0, 180.0, 90.0]]), # Dummy spatial and time bounds, updated later
             temporal=pystac.TemporalExtent([[
-                datetime(dataset_start_y, 1, 1, tzinfo=timezone.utc), 
-                datetime(datetime.now().year, 12, 31, tzinfo=timezone.utc)
+                dataset_start_datetime, 
+                dataset_start_datetime + relativedelta(years=1) # dummy initialization
             ]])
         )
     )
@@ -193,7 +229,7 @@ for input_path in input_paths:
         "var_name": var_name,
     }
 
-    process_variable(paths_dict, collection, lookup_dict, n=n_slices, start_year=dataset_start_y, trunc=trunc_to_uint16)
+    process_variable(paths_dict, collection, lookup_dict, window=max_bands_per_slice, trunc=trunc_to_uint16, start_dt=dataset_start_datetime, time_delta=dataset_time_delta)
 
     collection.update_extent_from_items()
     catalog.add_child(collection)
