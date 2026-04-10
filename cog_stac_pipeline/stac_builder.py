@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from rio_stac.stac import create_stac_item
 
 import cog_builder
+import fs_utils
 from datetime_utils import get_iso_key, format_stac_datetime, generate_date_range
 
 
@@ -69,11 +70,32 @@ def build_collection(var_name, start_dt):
     )
 
 
+class _S3StacIO(pystac.StacIO):
+    """pystac StacIO implementation that reads/writes catalog JSON via boto3."""
+
+    def __init__(self):
+        import boto3
+        self._s3 = boto3.client("s3")
+
+    def write_text_method(self, dest, txt):
+        bucket, key = dest[5:].split("/", 1)
+        self._s3.put_object(Bucket=bucket, Key=key, Body=txt.encode())
+
+    def read_text_method(self, source):
+        if isinstance(source, pystac.Link):
+            source = source.get_href()
+        if fs_utils.is_s3(source):
+            bucket, key = source[5:].split("/", 1)
+            return self._s3.get_object(Bucket=bucket, Key=key)["Body"].read().decode()
+        return pystac.StacIO.default().read_text_method(source)
+
+
 def save_catalog(catalog, stac_dir):
     """Normalizes hrefs, makes all asset hrefs relative, and saves the catalog."""
     catalog.normalize_hrefs(stac_dir)
     catalog.make_all_asset_hrefs_relative()
-    catalog.save(dest_href=stac_dir, catalog_type=pystac.CatalogType.SELF_CONTAINED)
+    stac_io = _S3StacIO() if fs_utils.is_s3(stac_dir) else None
+    catalog.save(dest_href=stac_dir, catalog_type=pystac.CatalogType.SELF_CONTAINED, stac_io=stac_io)
 
 
 def process_variable(paths_dict, stac_collection, lookup_dict, window, trunc, start_dt, time_delta):
@@ -95,7 +117,7 @@ def process_variable(paths_dict, stac_collection, lookup_dict, window, trunc, st
     step = relativedelta(**time_delta)
     lookup_dict[var_name] = {}
 
-    with gdal.Open(input_path) as ds:
+    with gdal.Open(fs_utils.to_vsi(input_path)) as ds:
         tot_bands = ds.RasterCount
 
     n = -(-tot_bands // window)  # ceiling division
@@ -121,7 +143,7 @@ def process_variable(paths_dict, stac_collection, lookup_dict, window, trunc, st
             slice_start_dt, slice_end_dt, step, time_delta,
         )
 
-        if not os.path.isfile(cog_file_path):
+        if not fs_utils.path_exists(cog_file_path):
             print(f"Creating slice {s + 1} with bands {start_idx + 1} to {end_idx + 1}")
             print(f"Mapped to time steps: {slice_start_dt} to {slice_end_dt}")
             cog_builder.build_cog_slice(

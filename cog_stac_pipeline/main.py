@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 
 import metadata
 import stac_builder
+import fs_utils
 from datetime_utils import singular_to_plural_for_relativedelta
 
 gdal.UseExceptions()
@@ -31,17 +32,13 @@ dataset_time_delta = singular_to_plural_for_relativedelta(dataset_time_delta)
 yaml_content, ds_meta = metadata.load_and_verify_metadata(metadata_file_path, dataset_name)
 any_metadata_updated = metadata.validate_else_add_timespan(ds_meta, dataset_start_datetime, dataset_time_delta)
 
-input_paths = [
-    os.path.join(input_dir, f)
-    for f in os.listdir(input_dir)
-    if f.endswith(".tif") and not f.endswith("_cogd.tif")
-]
+input_paths = [p for p in fs_utils.list_tif_files(input_dir) if not p.endswith("_cogd.tif")]
 
 output_dir = os.path.join(input_dir, dataset_name)
 root_cogs_dir = os.path.join(output_dir, "cogs")
 stac_dir = os.path.join(output_dir, "stac")
-os.makedirs(root_cogs_dir, exist_ok=True)
-os.makedirs(stac_dir, exist_ok=True)
+fs_utils.makedirs(root_cogs_dir)
+fs_utils.makedirs(stac_dir)
 
 catalog = pystac.Catalog(
     id="skope-catalog",
@@ -55,7 +52,7 @@ for input_path in input_paths:
 
     cogs_var_dir = os.path.join(root_cogs_dir, var_name)
     partial_path_base = os.path.join(dataset_name, "cogs", var_name)
-    os.makedirs(cogs_var_dir, exist_ok=True)
+    fs_utils.makedirs(cogs_var_dir)
 
     collection = stac_builder.build_collection(var_name, dataset_start_datetime)
 
@@ -85,8 +82,7 @@ stac_builder.save_catalog(catalog, stac_dir)
 
 print("Saving lookup dictionary")
 lookup_file_path = os.path.join(output_dir, "lookup.json")
-with open(lookup_file_path, "w") as f:
-    json.dump(lookup_dict, f, indent=2)
+fs_utils.write_text(lookup_file_path, json.dumps(lookup_dict, indent=2))
 
 if any_metadata_updated:
     print(f"Saving updated metadata back to {metadata_file_path}")

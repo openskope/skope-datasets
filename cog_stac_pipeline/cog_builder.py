@@ -2,6 +2,8 @@ import os
 import tempfile
 from osgeo import gdal
 
+import fs_utils
+
 
 def build_cog_slice(input_path, cog_file_path, start_band, end_band, trunc=False):
     """Selects a band range from input_path, writes a temp GeoTiff, then converts it to a COG.
@@ -22,7 +24,7 @@ def build_cog_slice(input_path, cog_file_path, start_band, end_band, trunc=False
     try:
         print("Selecting bands and writing GeoTiff file")
         pipe_str = (
-            f"read {input_path} ! select --band={selected_bands} ! {trunc_step}"
+            f"read {fs_utils.to_vsi(input_path)} ! select --band={selected_bands} ! {trunc_step}"
             f"write {slice_file} --format GTiff --co COMPRESS=ZSTD --co TILED=YES "
             f"--co BLOCKXSIZE=128 --co BLOCKYSIZE=128 --overwrite"
         )
@@ -36,7 +38,7 @@ def build_cog_slice(input_path, cog_file_path, start_band, end_band, trunc=False
         gdal.Run(
             "raster", "convert",
             input=slice_file,
-            output=cog_file_path,
+            output=fs_utils.to_vsi(cog_file_path),
             output_format="COG",
             creation_option=[
                 "BLOCKSIZE=128",

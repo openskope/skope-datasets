@@ -46,10 +46,30 @@ data.nosync/
 
 The file paths in `lookup.json` are relative to `input_dir` (i.e. `data.nosync/`).
 
+## S3 support ⚠️ WIP — not fully validated
+
+`input_dir` and the derived output paths accept `s3://bucket/prefix` in addition to local paths. Set them in `main.py` as you would any other path:
+
+```python
+input_dir = "s3://my-bucket/datasets/paleocar_v3/input"
+```
+
+COG reads and writes go through GDAL's `/vsis3/` virtual filesystem (converted transparently by `fs_utils`). The STAC catalog and `lookup.json` are written via boto3.
+
+**Known uncertainties before relying on this in production:**
+- `pystac.utils.make_relative_href` behavior with `s3://` URIs has not been tested — if it misbehaves, asset hrefs in all STAC items will be wrong.
+- `_S3StacIO` uses `write_text_method` / `read_text_method` hooks that require pystac ≥ 1.4 and the `stac_io` kwarg on `catalog.save`. Verify with `python -c "import pystac; print(pystac.__version__)"`.
+- GDAL and boto3 use **separate credential chains**. An IAM role or `~/.aws/credentials` file satisfies boto3 but not necessarily GDAL — set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` env vars (or `gdal.SetConfigOption`) to cover both.
+
+A dry run against a small single-variable, two-band GeoTiff on S3 is the recommended way to surface any of these issues before a full dataset run.
+
+`metadata.yml` always lives on the local filesystem — it is a shared config file, not a dataset output.
+
 ## Prerequisites
 
 - GDAL ≥ 3.12 (uses `gdal.Run` pipeline commands)
 - Python packages: `pystac`, `rio_stac`, `python-dateutil`, `pyyaml`
+- `boto3` — only required when using S3 paths
 
 ## Configuration
 
@@ -99,3 +119,4 @@ The pipeline will **add** missing fields (`crs`, `transform`, `timespan.period.g
 | `stac_builder.py` | STAC item/collection/catalog creation, lookup dict population, `process_variable` orchestrator |
 | `metadata.py` | YAML loading, and field-level validation/patching for timespan, CRS, transform, and min/max |
 | `datetime_utils.py` | ISO key formatting, date range generation, `relativedelta` helpers |
+| `fs_utils.py` | Filesystem abstraction: path detection, VSI conversion, directory creation, file listing, and text writes for both local and S3 paths |
